@@ -3,11 +3,12 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Bell, Copy, Check } from 'lucide-react';
+import { LogOut, Bell, Copy, Check, UserMinus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useFamily } from '../../context/FamilyContext';
 import { logOut } from '../../services/authService';
 import { requestNotificationAccess, registerPushToken } from '../../services/notificationService';
+import { removeMember } from '../../services/familyService';
 import Avatar from '../../components/Avatar';
 import { useToast } from '../../components/Toast';
 import { ROUTES } from '../../utils/constants';
@@ -43,6 +44,24 @@ export default function ProfilePage() {
     }
   };
 
+  const handleRemoveMember = async (member) => {
+    if (!window.confirm(`Are you sure you want to remove ${member.name} from the family?`)) return;
+    try {
+      await removeMember({
+        familyId: family.id,
+        memberId: member.uid,
+        memberName: member.name,
+        adminId: user.uid,
+        adminName: profile.name,
+      });
+      showToast(`${member.name} removed`, 'success');
+    } catch {
+      showToast('Could not remove member', 'error');
+    }
+  };
+
+  const isAdmin = user?.uid === family?.ownerId;
+
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto pb-24 md:pb-8">
       <header className="mb-6 flex flex-col items-center text-center">
@@ -53,9 +72,9 @@ export default function ProfilePage() {
 
       {family && (
         <div className="card mb-4">
-          <p className="text-xs font-medium text-slate-400 mb-1">FAMILY</p>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div>
+              <p className="text-xs font-medium text-slate-400 mb-1">FAMILY</p>
               <p className="font-semibold text-slate-800">{family.name}</p>
               <p className="text-xs text-slate-400">{members.length} member(s)</p>
             </div>
@@ -68,9 +87,30 @@ export default function ProfilePage() {
             </button>
           </div>
 
-          <div className="flex -space-x-2 mt-3">
+          <div className="space-y-3 mt-4 border-t border-slate-100 pt-4">
             {members.map((m) => (
-              <Avatar key={m.uid} name={m.name} photoURL={m.photoURL} size="sm" />
+              <div key={m.uid} className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Avatar name={m.name} photoURL={m.photoURL} size="sm" />
+                  <div>
+                    <p className="text-sm font-medium text-slate-800">
+                      {m.name} {m.uid === user.uid && '(You)'}
+                    </p>
+                    {m.uid === family.ownerId && (
+                      <p className="text-[10px] uppercase font-bold text-brand-600">Admin</p>
+                    )}
+                  </div>
+                </div>
+                {isAdmin && m.uid !== user.uid && (
+                  <button 
+                    onClick={() => handleRemoveMember(m)}
+                    className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Remove member"
+                  >
+                    <UserMinus className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         </div>

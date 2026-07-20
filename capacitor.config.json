@@ -1,0 +1,5 @@
+{
+  "appId": "com.homesync.app",
+  "appName": "HomeSync",
+  "webDir": "dist"
+}

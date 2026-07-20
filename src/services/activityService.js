@@ -30,13 +30,16 @@ export const logActivity = async ({ familyId, type, actorId, actorName, message 
 export const subscribeToActivityFeed = (familyId, onUpdate, onError, max = 50) => {
   const q = query(
     collection(db, COLLECTIONS.ACTIVITIES),
-    where('familyId', '==', familyId),
-    orderBy('timestamp', 'desc'),
-    limit(max)
+    where('familyId', '==', familyId)
   );
+
   return onSnapshot(
     q,
-    (snap) => onUpdate(snap.docs.map((d) => ({ ...d.data(), id: d.id }))),
+    (snap) => {
+      const activities = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+      activities.sort((a, b) => (b.timestamp?.toMillis?.() || b.timestamp || 0) - (a.timestamp?.toMillis?.() || a.timestamp || 0));
+      onUpdate(activities.slice(0, max));
+    },
     (error) => onError?.(error)
   );
 };

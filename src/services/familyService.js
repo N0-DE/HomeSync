@@ -8,6 +8,7 @@ import {
   getDoc,
   updateDoc,
   arrayUnion,
+  arrayRemove,
   query,
   collection,
   where,
@@ -99,4 +100,29 @@ export const getFamilyMembers = async (memberIds) => {
     memberIds.map((uid) => getDoc(doc(db, COLLECTIONS.USERS, uid)))
   );
   return results.filter((snap) => snap.exists()).map((snap) => snap.data());
+};
+
+/** Removes a member from a family. */
+export const removeMember = async ({ familyId, memberId, memberName, adminId, adminName }) => {
+  // Remove from family's memberIds array
+  await updateDoc(doc(db, COLLECTIONS.FAMILIES, familyId), {
+    memberIds: arrayRemove(memberId),
+  });
+  
+  // Clear the user's familyId
+  await updateDoc(doc(db, COLLECTIONS.USERS, memberId), { 
+    familyId: null 
+  });
+
+  // Log the activity
+  await logActivity({
+    familyId,
+    type: ACTIVITY_TYPES.MEMBER_REMOVED,
+    actorId: adminId,
+    actorName: adminName,
+    message: buildActivityMessage(ACTIVITY_TYPES.MEMBER_REMOVED, { 
+      actorName: adminName, 
+      removedName: memberName 
+    }),
+  });
 };

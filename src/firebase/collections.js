@@ -10,4 +10,5 @@ export const COLLECTIONS = {
   SHOPPING_ITEMS: 'shoppingItems',
   ACTIVITIES: 'activities',
   NOTIFICATIONS: 'notifications',
+  CUSTOM_STORES: 'customStores',
 };

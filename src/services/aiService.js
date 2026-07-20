@@ -11,7 +11,7 @@
 
 import { ITEM_CATEGORIES } from '../models/ShoppingItem';
 
-const GEMINI_MODEL = 'gemini-1.5-flash';
+const GEMINI_MODEL = 'gemini-3.5-flash';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const SYSTEM_INSTRUCTION = `You are a grocery list parser for a shopping app. Extract each distinct
@@ -42,7 +42,9 @@ export const extractItemsFromText = async (text) => {
   });
 
   if (!response.ok) {
-    throw new Error('AI Quick Add failed to reach Gemini. Please try again.');
+    const errText = await response.text();
+    console.error('Gemini API Error:', response.status, errText);
+    throw new Error(`AI Quick Add failed (${response.status}): ${errText}`);
   }
 
   const data = await response.json();

@@ -32,12 +32,15 @@ import { ACTIVITY_TYPES, buildActivityMessage } from '../models/Activity';
 export const subscribeToShoppingList = (familyId, onUpdate, onError) => {
   const q = query(
     collection(db, COLLECTIONS.SHOPPING_ITEMS),
-    where('familyId', '==', familyId),
-    orderBy('timestamp', 'desc')
+    where('familyId', '==', familyId)
   );
   return onSnapshot(
     q,
-    (snap) => onUpdate(snap.docs.map((d) => ({ ...d.data(), id: d.id }))),
+    (snap) => {
+      const items = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+      items.sort((a, b) => (b.timestamp?.toMillis?.() || b.timestamp || 0) - (a.timestamp?.toMillis?.() || a.timestamp || 0));
+      onUpdate(items);
+    },
     (error) => onError?.(error)
   );
 };
@@ -45,6 +48,7 @@ export const subscribeToShoppingList = (familyId, onUpdate, onError) => {
 /** Adds a single item to the family shopping list and logs an activity entry. */
 export const addItem = async ({ familyId, name, category, quantity, addedBy, addedByName }) => {
   const item = createShoppingItem({ familyId, name, category, quantity, addedBy, addedByName });
+  delete item.id; // Fix Firestore undefined ID error
   const docRef = await addDoc(collection(db, COLLECTIONS.SHOPPING_ITEMS), {
     ...item,
     timestamp: serverTimestamp(),

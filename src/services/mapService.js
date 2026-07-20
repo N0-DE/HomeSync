@@ -5,36 +5,72 @@
 // Google Maps SDK directly.
 
 import { RELEVANT_PLACE_TYPES, GEOFENCE_RADIUS_METERS } from '../utils/constants';
+import { Geolocation } from '@capacitor/geolocation';
+import { db } from '../firebase/config';
+import { collection, addDoc, onSnapshot, query, where, serverTimestamp } from 'firebase/firestore';
+import { COLLECTIONS } from '../firebase/collections';
+
+export const addCustomStore = async (familyId, name, location, vicinity = 'Custom Pin') => {
+  return addDoc(collection(db, COLLECTIONS.CUSTOM_STORES), {
+    familyId,
+    name,
+    location,
+    vicinity,
+    createdAt: serverTimestamp(),
+  });
+};
+
+export const subscribeToCustomStores = (familyId, onUpdate) => {
+  if (!familyId) return () => {};
+  const q = query(
+    collection(db, COLLECTIONS.CUSTOM_STORES),
+    where('familyId', '==', familyId)
+  );
+  return onSnapshot(q, (snapshot) => {
+    const stores = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      isCustom: true,
+    }));
+    onUpdate(stores);
+  });
+};
 
 /** Gets the browser's current position as a Promise. */
-export const getCurrentPosition = () =>
-  new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error('Geolocation is not supported by this browser.'));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      (err) => reject(err),
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  });
+export const getCurrentPosition = async () => {
+  const permissions = await Geolocation.checkPermissions();
+  if (permissions.location !== 'granted') {
+    await Geolocation.requestPermissions();
+  }
+  const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
+  return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+};
 
 /**
  * Watches the user's position continuously, calling `onPosition` on each
  * update. Returns a function to stop watching.
  */
-export const watchPosition = (onPosition, onError) => {
-  if (!navigator.geolocation) {
-    onError?.(new Error('Geolocation is not supported by this browser.'));
+export const watchPosition = async (onPosition, onError) => {
+  try {
+    const permissions = await Geolocation.checkPermissions();
+    if (permissions.location !== 'granted') {
+      await Geolocation.requestPermissions();
+    }
+    const watchId = await Geolocation.watchPosition(
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 15000 },
+      (pos, err) => {
+        if (err) {
+          onError?.(err);
+        } else if (pos) {
+          onPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        }
+      }
+    );
+    return () => Geolocation.clearWatch({ id: watchId });
+  } catch (err) {
+    onError?.(err);
     return () => {};
   }
-  const watchId = navigator.geolocation.watchPosition(
-    (pos) => onPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-    (err) => onError?.(err),
-    { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
-  );
-  return () => navigator.geolocation.clearWatch(watchId);
 };
 
 /** Haversine distance between two lat/lng points, in meters. */
@@ -58,11 +94,17 @@ export const distanceInMeters = (a, b) => {
  * @returns {Promise<Array<{ id: string, name: string, location: {lat, lng}, vicinity: string }>>}
  */
 export const findNearbyStores = async (location) => {
+  const SEARCH_RADIUS = 3000; // 3km for map visibility
   const query = `
     [out:json];
     (
-      node["shop"="supermarket"](around:${GEOFENCE_RADIUS_METERS}, ${location.lat}, ${location.lng});
-      node["amenity"="pharmacy"](around:${GEOFENCE_RADIUS_METERS}, ${location.lat}, ${location.lng});
+      node["shop"="supermarket"](around:${SEARCH_RADIUS}, ${location.lat}, ${location.lng});
+      node["shop"="convenience"](around:${SEARCH_RADIUS}, ${location.lat}, ${location.lng});
+      node["shop"="grocery"](around:${SEARCH_RADIUS}, ${location.lat}, ${location.lng});
+      node["shop"="general"](around:${SEARCH_RADIUS}, ${location.lat}, ${location.lng});
+      node["shop"="greengrocer"](around:${SEARCH_RADIUS}, ${location.lat}, ${location.lng});
+      node["shop"="department_store"](around:${SEARCH_RADIUS}, ${location.lat}, ${location.lng});
+      node["amenity"="pharmacy"](around:${SEARCH_RADIUS}, ${location.lat}, ${location.lng});
     );
     out center;
   `;

@@ -1,6 +1,6 @@
 // src/components/ActivityItem.jsx
 
-import { PlusCircle, CheckCircle2, UserPlus, Home } from 'lucide-react';
+import { PlusCircle, CheckCircle2, UserPlus, UserMinus, Home } from 'lucide-react';
 import { ACTIVITY_TYPES } from '../models/Activity';
 import { timeAgo } from '../utils/formatters';
 import Avatar from './Avatar';
@@ -9,6 +9,7 @@ const ICONS = {
   [ACTIVITY_TYPES.ITEM_ADDED]: { icon: PlusCircle, color: 'text-brand-600' },
   [ACTIVITY_TYPES.ITEM_BOUGHT]: { icon: CheckCircle2, color: 'text-blue-600' },
   [ACTIVITY_TYPES.MEMBER_JOINED]: { icon: UserPlus, color: 'text-purple-600' },
+  [ACTIVITY_TYPES.MEMBER_REMOVED]: { icon: UserMinus, color: 'text-red-500' },
   [ACTIVITY_TYPES.FAMILY_CREATED]: { icon: Home, color: 'text-amber-600' },
 };
 

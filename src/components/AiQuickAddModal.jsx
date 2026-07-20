@@ -4,9 +4,11 @@
 // aiService.extractItemsFromText) returns structured items, the user
 // reviews/edits them, then confirms to bulk-add via onConfirm.
 
-import { useState } from 'react';
-import { X, Sparkles, Loader2 } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { X, Sparkles, Loader2, Mic, MicOff } from 'lucide-react';
 import { extractItemsFromText } from '../services/aiService';
+
+import { SpeechRecognition } from '@capacitor-community/speech-recognition';
 
 export default function AiQuickAddModal({ open, onClose, onConfirm }) {
   const [text, setText] = useState('');
@@ -14,11 +16,62 @@ export default function AiQuickAddModal({ open, onClose, onConfirm }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-
+  const [isListening, setIsListening] = useState(false);
+  
   if (!open) return null;
+
+  const toggleListening = async () => {
+    if (isListening) {
+      try { await SpeechRecognition.stop(); } catch (e) {}
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const perms = await SpeechRecognition.requestPermissions();
+      if (perms.speechRecognition !== 'granted') {
+        setError("Microphone permission was denied. Please enable it in Settings.");
+        return;
+      }
+
+      const { available } = await SpeechRecognition.available();
+      if (!available) {
+        setError("Speech recognition is not available on this device.");
+        return;
+      }
+
+      setIsListening(true);
+      setError(null);
+      
+      await SpeechRecognition.removeAllListeners();
+      
+      await SpeechRecognition.addListener('partialResults', (data) => {
+        if (data.matches && data.matches.length > 0) {
+          setText(data.matches[0]);
+        }
+      });
+      
+      await SpeechRecognition.start({
+        language: "en-US",
+        maxResults: 1,
+        prompt: "Say your shopping items",
+        partialResults: true,
+        popup: false,
+      });
+    } catch (err) {
+      console.error("Speech recognition error:", err);
+      setIsListening(false);
+      setError(`Microphone error: ${err.message}`);
+    }
+  };
 
   const handleExtract = async () => {
     if (!text.trim()) return;
+    if (isListening) {
+      try { await SpeechRecognition.stop(); } catch (e) {}
+      setIsListening(false);
+    }
+    
     setLoading(true);
     setError(null);
     try {
@@ -42,7 +95,11 @@ export default function AiQuickAddModal({ open, onClose, onConfirm }) {
     }
   };
 
-  const reset = () => {
+  const reset = async () => {
+    if (isListening) {
+      try { await SpeechRecognition.stop(); } catch (e) {}
+      setIsListening(false);
+    }
     setText('');
     setExtracted(null);
     setError(null);
@@ -68,9 +125,21 @@ export default function AiQuickAddModal({ open, onClose, onConfirm }) {
 
         {!extracted ? (
           <>
-            <p className="text-sm text-slate-500 mb-2">
-              Type items naturally — e.g. "Add milk, bread and toothpaste".
-            </p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm text-slate-500">
+                Type or speak items — e.g. "Add milk and bread".
+              </p>
+              <button
+                onClick={toggleListening}
+                className={`p-2 rounded-full transition-colors ${
+                  isListening ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+                title={isListening ? "Stop listening" : "Start listening"}
+              >
+                {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </button>
+            </div>
+            
             <textarea
               autoFocus
               className="input-field min-h-[90px] resize-none"
@@ -81,7 +150,7 @@ export default function AiQuickAddModal({ open, onClose, onConfirm }) {
             {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
             <button
               onClick={handleExtract}
-              disabled={loading || !text.trim()}
+              disabled={loading || (!text.trim() && !isListening)}
               className="btn-primary w-full mt-3 flex items-center justify-center gap-2"
             >
               {loading ? (

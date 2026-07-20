@@ -7,6 +7,7 @@ export const ACTIVITY_TYPES = {
   ITEM_ADDED: 'item_added',
   ITEM_BOUGHT: 'item_bought',
   MEMBER_JOINED: 'member_joined',
+  MEMBER_REMOVED: 'member_removed',
   FAMILY_CREATED: 'family_created',
 };
 
@@ -36,7 +37,7 @@ export const createActivity = (data) => ({
 });
 
 /** Builds a consistent, human-readable message per activity type. */
-export const buildActivityMessage = (type, { actorName, itemName, familyName }) => {
+export const buildActivityMessage = (type, { actorName, itemName, familyName, removedName }) => {
   switch (type) {
     case ACTIVITY_TYPES.ITEM_ADDED:
       return `${actorName} added ${itemName}`;
@@ -44,6 +45,8 @@ export const buildActivityMessage = (type, { actorName, itemName, familyName }) 
       return `${actorName} bought ${itemName}`;
     case ACTIVITY_TYPES.MEMBER_JOINED:
       return `${actorName} joined the family`;
+    case ACTIVITY_TYPES.MEMBER_REMOVED:
+      return `${actorName} removed ${removedName}`;
     case ACTIVITY_TYPES.FAMILY_CREATED:
       return `${actorName} created ${familyName}`;
     default:

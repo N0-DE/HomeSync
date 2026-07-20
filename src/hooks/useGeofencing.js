@@ -22,21 +22,41 @@ export const useGeofencing = ({ enabled, stores, shoppingItems, familyId }) => {
   const stopWatchingRef = useRef(null);
 
   useEffect(() => {
+    let active = true;
+
     if (!enabled) {
-      stopWatchingRef.current?.();
+      if (typeof stopWatchingRef.current === 'function') {
+        stopWatchingRef.current();
+      }
+      stopWatchingRef.current = null;
       return;
     }
 
-    stopWatchingRef.current = watchPosition((location) => {
-      setUserLocation(location);
-      const hits = checkGeofenceHits(location, stores);
-      setNearbyHits(hits);
+    const start = async () => {
+      const unsub = await watchPosition((location) => {
+        if (!active) return;
+        setUserLocation(location);
+        const hits = checkGeofenceHits(location, stores);
+        setNearbyHits(hits);
 
-      const pending = getPendingItems(shoppingItems);
-      hits.forEach((store) => maybeNotifyNearbyStore({ store, pendingItems: pending, familyId }));
-    });
+        const pending = getPendingItems(shoppingItems);
+        hits.forEach((store) => maybeNotifyNearbyStore({ store, pendingItems: pending, familyId }));
+      });
+      if (active) {
+        stopWatchingRef.current = unsub;
+      } else if (unsub) {
+        unsub();
+      }
+    };
+    start();
 
-    return () => stopWatchingRef.current?.();
+    return () => {
+      active = false;
+      if (typeof stopWatchingRef.current === 'function') {
+        stopWatchingRef.current();
+      }
+      stopWatchingRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, stores, shoppingItems, familyId]);
 

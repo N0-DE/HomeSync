@@ -2,7 +2,8 @@
 
 /** Formats a ms-epoch timestamp as a relative time, e.g. "5m ago". */
 export const timeAgo = (timestamp) => {
-  const diffSec = Math.floor((Date.now() - timestamp) / 1000);
+  const ts = timestamp?.toMillis?.() ?? timestamp;
+  const diffSec = Math.floor((Date.now() - ts) / 1000);
   if (diffSec < 60) return 'just now';
   const diffMin = Math.floor(diffSec / 60);
   if (diffMin < 60) return `${diffMin}m ago`;
